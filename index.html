@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🗑️ TrashBlast! - Game Pilah Sampah</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --organic: #4ade80;
+    --plastic: #60a5fa;
+    --metal: #f59e0b;
+    --paper: #e879f9;
+    --hazard: #f87171;
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --text: #f1f5f9;
+    --shadow: rgba(0,0,0,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* BG animated stars */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(96,165,250,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(74,222,128,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 50%;
+    animation: twinkle 3s infinite;
+  }
+  @keyframes twinkle {
+    0%,100%{opacity:0.2;transform:scale(1);}
+    50%{opacity:1;transform:scale(1.4);}
+  }
+
+  /* ===== SCREENS ===== */
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10;
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .screen.hidden { opacity:0; pointer-events:none; transform:scale(0.95); }
+
+  /* ===== START SCREEN ===== */
+  #startScreen {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    gap: 24px; padding: 20px; text-align: center;
+  }
+  .game-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(48px, 10vw, 96px);
+    line-height: 1;
+    background: linear-gradient(135deg, #4ade80, #60a5fa, #e879f9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(96,165,250,0.4));
+    animation: titlePulse 2s ease-in-out infinite;
+  }
+  @keyframes titlePulse {
+    0%,100%{filter:drop-shadow(0 0 20px rgba(96,165,250,0.3));}
+    50%{filter:drop-shadow(0 0 40px rgba(96,165,250,0.7));}
+  }
+  .subtitle {
+    font-size: 18px; font-weight: 700;
+    color: #94a3b8; letter-spacing: 2px; text-transform: uppercase;
+  }
+  .trash-icons-row {
+    display: flex; gap: 16px; font-size: 40px;
+    animation: float 2s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-10px);}
+  }
+  .trash-icons-row span { animation: float 2s ease-in-out infinite; }
+  .trash-icons-row span:nth-child(2){animation-delay:0.2s;}
+  .trash-icons-row span:nth-child(3){animation-delay:0.4s;}
+  .trash-icons-row span:nth-child(4){animation-delay:0.6s;}
+  .trash-icons-row span:nth-child(5){animation-delay:0.8s;}
+
+  .how-to {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 20px 30px;
+    max-width: 480px; width: 100%;
+  }
+  .how-to h3 { font-family: 'Fredoka One'; font-size: 22px; color: #60a5fa; margin-bottom: 12px; }
+  .how-to p { font-size: 14px; color: #94a3b8; line-height: 1.8; }
+  .bins-preview {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px;
+  }
+  .bin-badge {
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  }
+
+  .btn-start {
+    font-family: 'Fredoka One'; font-size: 28px;
+    padding: 16px 60px; border-radius: 60px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    color: #0f172a;
+    box-shadow: 0 8px 32px rgba(74,222,128,0.4);
+    transition: all 0.2s;
+    animation: btnPop 0.5s ease-out;
+  }
+  .btn-start:hover { transform: scale(1.06) translateY(-3px); box-shadow: 0 12px 40px rgba(74,222,128,0.6); }
+  .btn-start:active { transform: scale(0.97); }
+  @keyframes btnPop { 0%{transform:scale(0.5);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+
+  /* ===== GAME SCREEN ===== */
+  #gameScreen {
+    flex-direction: column;
+    padding: 0;
+    justify-content: flex-start;
+  }
+
+  /* HUD */
+  #hud {
+    width: 100%; padding: 10px 20px;
+    display: flex; align-items: center; gap: 16px;
+    background: rgba(15,23,42,0.9);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    z-index: 20; position: relative;
+  }
+  .hud-item {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 30px; padding: 6px 14px;
+    font-weight: 800; font-size: 16px;
+  }
+  .hud-icon { font-size: 20px; }
+  #scoreDisplay { color: #fbbf24; }
+  #livesDisplay { color: #f87171; }
+  #levelDisplay { color: #a78bfa; }
+  #comboDisplay { color: #34d399; transition: all 0.3s; }
+  .combo-active { animation: comboPulse 0.4s ease-out; }
+  @keyframes comboPulse { 0%{transform:scale(1.5);} 100%{transform:scale(1);} }
+
+  #timerBar {
+    flex: 1; height: 10px; border-radius: 10px;
+    background: rgba(255,255,255,0.1); overflow: hidden;
+  }
+  #timerFill {
+    height: 100%; border-radius: 10px;
+    background: linear-gradient(90deg, #4ade80, #22c55e);
+    transition: width 0.1s linear, background 0.5s;
+  }
+
+  /* ARENA */
+  #arena {
+    flex: 1; position: relative; width: 100%; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 0%, rgba(30,41,59,0.8) 0%, transparent 70%);
+  }
+
+  /* FALLING TRASH */
+  .trash-item {
+    position: absolute; cursor: grab;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; z-index: 5;
+    transition: filter 0.1s;
+    animation: trashFall linear forwards;
+  }
+  .trash-item:active { cursor: grabbing; }
+  .trash-emoji { font-size: 38px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); line-height: 1; }
+  .trash-label {
+    font-size: 10px; font-weight: 800;
+    padding: 2px 8px; border-radius: 10px;
+    color: #0f172a; white-space: nowrap;
+  }
+  @keyframes trashFall {
+    0% { transform: translateY(-80px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(calc(var(--fall-dist) + 80px)) rotate(var(--rotation)); opacity: 1; }
+  }
+  .trash-item.dragging {
+    animation: none !important;
+    z-index: 100;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)) brightness(1.2);
+  }
+  .trash-item.correct {
+    animation: correctAnim 0.4s ease-out forwards !important;
+  }
+  .trash-item.wrong {
+    animation: wrongAnim 0.4s ease-out forwards !important;
+  }
+  @keyframes correctAnim {
+    0%{transform:scale(1);}
+    50%{transform:scale(1.4) rotate(15deg);}
+    100%{transform:scale(0) rotate(30deg); opacity:0;}
+  }
+  @keyframes wrongAnim {
+    0%{transform:translateX(0);}
+    25%{transform:translateX(-12px);}
+    75%{transform:translateX(12px);}
+    100%{transform:translateX(0) scale(0); opacity:0;}
+  }
+
+  /* BINS */
+  #binsContainer {
+    width: 100%; display: flex; align-items: flex-end; justify-content: center;
+    gap: 8px; padding: 10px 10px 16px;
+    position: relative; z-index: 10;
+    background: linear-gradient(0deg, rgba(15,23,42,0.98) 0%, transparent 100%);
+  }
+  .bin {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; cursor: pointer; position: relative;
+    transition: transform 0.15s;
+  }
+  .bin:hover { transform: translateY(-4px) scale(1.05); }
+  .bin-visual {
+    width: 80px; height: 90px; border-radius: 8px 8px 14px 14px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-end; padding-bottom: 10px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.15);
+    transition: all 0.2s;
+  }
+  .bin-lid {
+    position: absolute; top: -4px; left: -4px; right: -4px; height: 20px;
+    border-radius: 6px; border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+  }
+  .bin.active .bin-lid { transform: rotate(-20deg) translateY(-6px); }
+  .bin.active .bin-visual { transform: scale(1.05); }
+  .bin-icon { font-size: 32px; }
+  .bin-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  .bin[data-type="organic"]  .bin-visual { background: linear-gradient(180deg, #166534, #15803d); border-color: #4ade80; }
+  .bin[data-type="organic"]  .bin-lid    { background: #15803d; border-color: #4ade80; }
+  .bin[data-type="organic"]  .bin-label  { color: #4ade80; }
+  .bin[data-type="plastic"]  .bin-visual { background: linear-gradient(180deg, #1e3a5f, #1d4ed8); border-color: #60a5fa; }
+  .bin[data-type="plastic"]  .bin-lid    { background: #1d4ed8; border-color: #60a5fa; }
+  .bin[data-type="plastic"]  .bin-label  { color: #60a5fa; }
+  .bin[data-type="metal"]    .bin-visual { background: linear-gradient(180deg, #78350f, #b45309); border-color: #f59e0b; }
+  .bin[data-type="metal"]    .bin-lid    { background: #b45309; border-color: #f59e0b; }
+  .bin[data-type="metal"]    .bin-label  { color: #f59e0b; }
+  .bin[data-type="paper"]    .bin-visual { background: linear-gradient(180deg, #701a75, #a21caf); border-color: #e879f9; }
+  .bin[data-type="paper"]    .bin-lid    { background: #a21caf; border-color: #e879f9; }
+  .bin[data-type="paper"]    .bin-label  { color: #e879f9; }
+  .bin[data-type="hazard"]   .bin-visual { background: linear-gradient(180deg, #7f1d1d, #b91c1c); border-color: #f87171; }
+  .bin[data-type="hazard"]   .bin-lid    { background: #b91c1c; border-color: #f87171; }
+  .bin[data-type="hazard"]   .bin-label  { color: #f87171; }
+
+  .bin.drop-target { animation: binPulse 0.4s ease-out; }
+  @keyframes binPulse { 0%,100%{transform:translateY(-4px) scale(1.05);} 50%{transform:translateY(-8px) scale(1.1);} }
+  .bin.shake { animation: binShake 0.4s ease-out; }
+  @keyframes binShake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+  /* PARTICLES */
+  .particle {
+    position: fixed; pointer-events: none; z-index: 200;
+    font-size: 20px; font-weight: 900;
+    animation: particleFly 0.8s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0%{opacity:1;transform:translateY(0) scale(1);}
+    100%{opacity:0;transform:translateY(-80px) scale(0.5);}
+  }
+  .score-pop {
+    position: fixed; pointer-events: none; z-index: 200;
+    font-family: 'Fredoka One'; font-size: 28px;
+    animation: scorePop 0.8s ease-out forwards;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  @keyframes scorePop {
+    0%{opacity:1;transform:translateY(0) scale(1.2);}
+    100%{opacity:0;transform:translateY(-60px) scale(0.8);}
+  }
+
+  /* SCREEN FLASH */
+  #screenFlash {
+    position: fixed; inset: 0; z-index: 300;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.1s;
+  }
+  #screenFlash.flash-green  { background: rgba(74,222,128,0.15); }
+  #screenFlash.flash-red    { background: rgba(248,113,113,0.25); }
+
+  /* LEVEL UP */
+  #levelUpBanner {
+    position: fixed; inset: 0; z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .level-up-inner {
+    font-family: 'Fredoka One'; font-size: 64px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 30px rgba(251,191,36,0.8));
+    opacity: 0; transform: scale(0.5);
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .level-up-inner.show { opacity: 1; transform: scale(1); }
+
+  /* GAME OVER */
+  #gameOverScreen {
+    background: rgba(15,23,42,0.95);
+    backdrop-filter: blur(20px);
+    gap: 20px; padding: 30px; text-align: center;
+  }
+  .go-title {
+    font-family: 'Fredoka One'; font-size: 64px;
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .go-score {
+    font-family: 'Fredoka One'; font-size: 40px; color: #fbbf24;
+  }
+  .go-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; width: 100%; max-width: 360px;
+  }
+  .stat-card {
+    background: rgba(255,255,255,0.07); border-radius: 14px;
+    padding: 14px; text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .stat-card .val { font-family: 'Fredoka One'; font-size: 28px; }
+  .stat-card .lbl { font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .btn-retry {
+    font-family: 'Fredoka One'; font-size: 24px;
+    padding: 14px 50px; border-radius: 50px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    color: white;
+    box-shadow: 0 8px 24px rgba(96,165,250,0.4);
+    transition: all 0.2s;
+  }
+  .btn-retry:hover { transform: scale(1.06) translateY(-2px); box-shadow: 0 12px 32px rgba(96,165,250,0.6); }
+
+  /* DRAG HIGHLIGHT on bins */
+  .bin.drag-over .bin-visual { box-shadow: 0 0 24px 8px rgba(255,255,255,0.3); }
+
+  /* MISSED trash warning */
+  .miss-flash {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 4px;
+    background: #f87171; z-index: 500; opacity: 0;
+    animation: missLine 0.4s ease-out forwards;
+  }
+  @keyframes missLine { 0%{opacity:1;} 100%{opacity:0;} }
+
+  /* Life hearts */
+  .heart { display: inline-block; transition: all 0.3s; }
+  .heart.lost { filter: grayscale(1) opacity(0.3); transform: scale(0.7); }
+
+  @media (max-width: 500px) {
+    .bin-visual { width: 62px; height: 72px; }
+    .bin-icon { font-size: 24px; }
+    .bin-label { font-size: 9px; }
+    .trash-emoji { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+<div id="screenFlash"></div>
+
+<!-- START SCREEN -->
+<div class="screen" id="startScreen">
+  <div class="trash-icons-row">
+    <span>🍌</span><span>🧴</span><span>🥫</span><span>📰</span><span>🔋</span>
+  </div>
+  <div class="game-title">TrashBlast!</div>
+  <div class="subtitle">🌿 Game Pilah Sampah Seru 🌿</div>
+  
+  <div class="how-to">
+    <h3>🎮 Cara Bermain</h3>
+    <p>
+      Seret atau klik sampah ke tempat sampah yang tepat sebelum jatuh!<br>
+      Combo beruntun = bonus poin berlipat!<br>
+      Salah buang = kehilangan nyawa ❤️
+    </p>
+    <div class="bins-preview">
+      <span class="bin-badge" style="background:#4ade80;color:#0f172a">🌿 Organik</span>
+      <span class="bin-badge" style="background:#60a5fa;color:#0f172a">🧴 Plastik</span>
+      <span class="bin-badge" style="background:#f59e0b;color:#0f172a">🥫 Logam</span>
+      <span class="bin-badge" style="background:#e879f9;color:#0f172a">📰 Kertas</span>
+      <span class="bin-badge" style="background:#f87171;color:#fff">☢️ B3</span>
+    </div>
+  </div>
+
+  <button class="btn-start" onclick="startGame()">🚀 Mulai Bermain!</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="screen hidden" id="gameScreen">
+  <div id="hud">
+    <div class="hud-item" id="scoreDisplay"><span class="hud-icon">⭐</span><span id="scoreVal">0</span></div>
+    <div class="hud-item" id="comboDisplay"><span class="hud-icon">🔥</span><span id="comboVal">x1</span></div>
+    <div class="hud-item" id="levelDisplay"><span class="hud-icon">📊</span>Lvl <span id="levelVal">1</span></div>
+    <div id="timerBar"><div id="timerFill"></div></div>
+    <div class="hud-item" id="livesDisplay"><span id="heartsDisplay">❤️❤️❤️</span></div>
+  </div>
+
+  <div id="arena" id="arena">
+    <!-- trash items fall here -->
+  </div>
+
+  <div id="binsContainer">
+    <div class="bin" data-type="organic"  onclick="binClicked('organic')">
+      <div class="bin-visual"><div class="bin-lid"></div><div class="bin-icon">🌿</div></div>
+      <div class="bin-label">Organik</div>
+    </div>
+    <div class="bin" data-type="plastic"  onclick="binClicked('plastic')">
+      <div class="bin-visual"><div class="bin-lid"></div><div class="bin-icon">🧴</div></div>
+      <div class="bin-label">Plastik</div>
+    </div>
+    <div class="bin" data-type="metal"    onclick="binClicked('metal')">
+      <div class="bin-visual"><div class="bin-lid"></div><div class="bin-icon">🥫</div></div>
+      <div class="bin-label">Logam</div>
+    </div>
+    <div class="bin" data-type="paper"    onclick="binClicked('paper')">
+      <div class="bin-visual"><div class="bin-lid"></div><div class="bin-icon">📰</div></div>
+      <div class="bin-label">Kertas</div>
+    </div>
+    <div class="bin" data-type="hazard"   onclick="binClicked('hazard')">
+      <div class="bin-visual"><div class="bin-lid"></div><div class="bin-icon">☢️</div></div>
+      <div class="bin-label">B3</div>
+    </div>
+  </div>
+</div>
+
+<!-- GAME OVER SCREEN -->
+<div class="screen hidden" id="gameOverScreen">
+  <div class="go-title">GAME OVER!</div>
+  <div class="go-score">⭐ <span id="finalScore">0</span></div>
+  <div class="go-stats">
+    <div class="stat-card"><div class="val" id="statCorrect" style="color:#4ade80">0</div><div class="lbl">✅ Benar</div></div>
+    <div class="stat-card"><div class="val" id="statWrong"   style="color:#f87171">0</div><div class="lbl">❌ Salah</div></div>
+    <div class="stat-card"><div class="val" id="statMaxCombo" style="color:#f59e0b">x1</div><div class="lbl">🔥 Combo Max</div></div>
+    <div class="stat-card"><div class="val" id="statLevel"   style="color:#a78bfa">1</div><div class="lbl">📊 Level</div></div>
+  </div>
+  <button class="btn-retry" onclick="startGame()">🔄 Main Lagi!</button>
+  <button class="btn-retry" style="background:linear-gradient(135deg,#94a3b8,#64748b);box-shadow:none;font-size:18px;padding:10px 30px" onclick="showStart()">🏠 Menu</button>
+</div>
+
+<!-- LEVEL UP BANNER -->
+<div id="levelUpBanner"><div class="level-up-inner" id="levelUpText">LEVEL UP! 🚀</div></div>
+
+<script>
+// ======================== DATA ========================
+const TRASH_DATA = [
+  // Organic
+  { emoji:'🍌', label:'Pisang',    type:'organic'  },
+  { emoji:'🍎', label:'Apel',      type:'organic'  },
+  { emoji:'🥦', label:'Sayur',     type:'organic'  },
+  { emoji:'🍂', label:'Daun',      type:'organic'  },
+  { emoji:'🍗', label:'Tulang',    type:'organic'  },
+  { emoji:'🌽', label:'Jagung',    type:'organic'  },
+  { emoji:'🥕', label:'Wortel',    type:'organic'  },
+  { emoji:'🍞', label:'Roti',      type:'organic'  },
+  { emoji:'🐟', label:'Ikan',      type:'organic'  },
+  // Plastic
+  { emoji:'🧴', label:'Botol Gel', type:'plastic'  },
+  { emoji:'🥤', label:'Cup',       type:'plastic'  },
+  { emoji:'🛍️', label:'Kantong',  type:'plastic'  },
+  { emoji:'🧃', label:'Kotak Jus', type:'plastic'  },
+  { emoji:'🍶', label:'Botol',     type:'plastic'  },
+  { emoji:'💊', label:'Kemasan',   type:'plastic'  },
+  // Metal
+  { emoji:'🥫', label:'Kaleng',    type:'metal'    },
+  { emoji:'🍺', label:'Kaleng Beer',type:'metal'   },
+  { emoji:'🔩', label:'Baut',      type:'metal'    },
+  { emoji:'🪣', label:'Ember',     type:'metal'    },
+  { emoji:'🔧', label:'Kunci',     type:'metal'    },
+  { emoji:'🥄', label:'Sendok',    type:'metal'    },
+  // Paper
+  { emoji:'📰', label:'Koran',     type:'paper'    },
+  { emoji:'📦', label:'Kardus',    type:'paper'    },
+  { emoji:'📄', label:'Kertas',    type:'paper'    },
+  { emoji:'📚', label:'Buku',      type:'paper'    },
+  { emoji:'🧻', label:'Tisu',      type:'paper'    },
+  { emoji:'✉️', label:'Amplop',    type:'paper'    },
+  { emoji:'🗒️', label:'Nota',     type:'paper'    },
+  // Hazard / B3
+  { emoji:'🔋', label:'Baterai',   type:'hazard'   },
+  { emoji:'💡', label:'Lampu',     type:'hazard'   },
+  { emoji:'🖨️', label:'Printer',  type:'hazard'   },
+  { emoji:'💻', label:'Laptop',    type:'hazard'   },
+  { emoji:'📱', label:'HP Rusak',  type:'hazard'   },
+  { emoji:'🧪', label:'Kimia',     type:'hazard'   },
+  { emoji:'🩺', label:'Jarum',     type:'hazard'   },
+];
+
+const BIN_COLORS = {
+  organic: '#4ade80', plastic: '#60a5fa',
+  metal: '#f59e0b', paper: '#e879f9', hazard: '#f87171',
+};
+const BIN_LABELS = {
+  organic: 'Organik', plastic: 'Plastik',
+  metal: 'Logam', paper: 'Kertas', hazard: 'B3',
+};
+
+// ======================== GAME STATE ========================
+let score = 0, lives = 3, level = 1, combo = 1;
+let maxCombo = 1, correctCount = 0, wrongCount = 0;
+let gameRunning = false;
+let spawnInterval, timerInterval;
+let currentTrashItems = []; // {el, type, id, removed}
+let selectedTrashId = null;
+let trashIdCounter = 0;
+let timeLeft = 100;
+let fallDuration = 8; // seconds, decreases with level
+let spawnRate = 2200; // ms between spawns
+let scorePerItem = 10;
+const MAX_TRASH_ALIVE = 6;
+
+// Drag state
+let dragging = null, dragOffX = 0, dragOffY = 0;
+
+// ======================== STAR BACKGROUND ========================
+function makeStars() {
+  const c = document.getElementById('stars');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random()*100+'%';
+    s.style.top  = Math.random()*100+'%';
+    s.style.animationDelay = Math.random()*3+'s';
+    s.style.animationDuration = (2+Math.random()*2)+'s';
+    s.style.width = s.style.height = (1+Math.random()*2)+'px';
+    c.appendChild(s);
+  }
+}
+makeStars();
+
+// ======================== SCREENS ========================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+function showStart() {
+  stopGame();
+  showScreen('startScreen');
+}
+
+// ======================== GAME INIT ========================
+function startGame() {
+  score = 0; lives = 3; level = 1; combo = 1;
+  maxCombo = 1; correctCount = 0; wrongCount = 0;
+  timeLeft = 100; fallDuration = 8; spawnRate = 2200; scorePerItem = 10;
+  trashIdCounter = 0;
+  currentTrashItems = [];
+  dragging = null; selectedTrashId = null;
+
+  const arena = document.getElementById('arena');
+  arena.innerHTML = '';
+
+  updateHUD();
+  showScreen('gameScreen');
+  gameRunning = true;
+
+  startTimer();
+  scheduleSpawn();
+}
+
+function stopGame() {
+  gameRunning = false;
+  clearInterval(timerInterval);
+  clearInterval(spawnInterval);
+}
+
+function gameOver() {
+  stopGame();
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('statCorrect').textContent = correctCount;
+  document.getElementById('statWrong').textContent  = wrongCount;
+  document.getElementById('statMaxCombo').textContent = 'x'+maxCombo;
+  document.getElementById('statLevel').textContent   = level;
+  showScreen('gameOverScreen');
+}
+
+// ======================== TIMER ========================
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!gameRunning) return;
+    timeLeft = Math.max(0, timeLeft - 0.5);
+    const pct = timeLeft;
+    const fill = document.getElementById('timerFill');
+    fill.style.width = pct + '%';
+    if (pct > 60) fill.style.background = 'linear-gradient(90deg,#4ade80,#22c55e)';
+    else if (pct > 30) fill.style.background = 'linear-gradient(90deg,#fbbf24,#f59e0b)';
+    else fill.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
+
+    if (timeLeft <= 0) {
+      loseLife('⏰ Waktu Habis!');
+    }
+  }, 100);
+}
+
+function resetTimer() {
+  timeLeft = 100;
+}
+
+// ======================== SPAWNING ========================
+function scheduleSpawn() {
+  clearInterval(spawnInterval);
+  spawnTrash();
+  spawnInterval = setInterval(() => {
+    if (!gameRunning) return;
+    const alive = currentTrashItems.filter(t => !t.removed).length;
+    if (alive < MAX_TRASH_ALIVE) spawnTrash();
+  }, spawnRate);
+}
+
+function spawnTrash() {
+  if (!gameRunning) return;
+  const arena = document.getElementById('arena');
+  const arenaW = arena.clientWidth;
+  const arenaH = arena.clientHeight;
+
+  const data = TRASH_DATA[Math.floor(Math.random() * TRASH_DATA.length)];
+  const id = ++trashIdCounter;
+
+  const el = document.createElement('div');
+  el.className = 'trash-item';
+  el.dataset.id = id;
+  el.dataset.type = data.type;
+
+  const xPos = 30 + Math.random() * (arenaW - 90);
+  el.style.left = xPos + 'px';
+  el.style.top = '0px';
+  el.style.setProperty('--fall-dist', arenaH + 'px');
+  el.style.setProperty('--rotation', (Math.random()*40-20)+'deg');
+  el.style.animationDuration = fallDuration + 's';
+  el.style.animationTimingFunction = 'linear';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'trash-label';
+  labelEl.textContent = data.label;
+  labelEl.style.background = BIN_COLORS[data.type];
+  labelEl.style.color = data.type === 'hazard' ? '#fff' : '#0f172a';
+
+  el.innerHTML = `<div class="trash-emoji">${data.emoji}</div>`;
+  el.appendChild(labelEl);
+
+  arena.appendChild(el);
+
+  const item = { el, type: data.type, id, removed: false, emoji: data.emoji };
+  currentTrashItems.push(item);
+
+  // Detect when trash reaches bottom (missed)
+  const dur = fallDuration * 1000;
+  item.missTimeout = setTimeout(() => {
+    if (!item.removed && gameRunning) {
+      missTrash(item);
+    }
+  }, dur);
+
+  // Drag events
+  el.addEventListener('mousedown', e => startDrag(e, item));
+  el.addEventListener('touchstart', e => startDrag(e, item), { passive: false });
+}
+
+// ======================== DRAG ========================
+function startDrag(e, item) {
+  if (item.removed) return;
+  e.preventDefault();
+  dragging = item;
+  selectedTrashId = item.id;
+  item.el.classList.add('dragging');
+  item.el.style.animationPlayState = 'paused';
+  // pause animation and capture current visual position
+  const rect = item.el.getBoundingClientRect();
+  const arenaRect = document.getElementById('arena').getBoundingClientRect();
+
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+  dragOffX = clientX - rect.left;
+  dragOffY = clientY - rect.top;
+
+  // Fix position in arena
+  item.el.style.left = (rect.left - arenaRect.left) + 'px';
+  item.el.style.top  = (rect.top  - arenaRect.top)  + 'px';
+}
+
+document.addEventListener('mousemove', moveDrag);
+document.addEventListener('touchmove', moveDrag, { passive: false });
+
+function moveDrag(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const arenaRect = document.getElementById('arena').getBoundingClientRect();
+  dragging.el.style.left = (clientX - arenaRect.left - dragOffX) + 'px';
+  dragging.el.style.top  = (clientY - arenaRect.top  - dragOffY) + 'px';
+
+  // Highlight bin underneath
+  const bins = document.querySelectorAll('.bin');
+  bins.forEach(b => b.classList.remove('drag-over'));
+  const binUnder = getBinUnderCursor(clientX, clientY);
+  if (binUnder) binUnder.classList.add('drag-over');
+}
+
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+
+function endDrag(e) {
+  if (!dragging) return;
+  const item = dragging;
+  dragging = null;
+
+  const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+
+  const bins = document.querySelectorAll('.bin');
+  bins.forEach(b => b.classList.remove('drag-over'));
+
+  const binEl = getBinUnderCursor(clientX, clientY);
+  if (binEl) {
+    const binType = binEl.dataset.type;
+    resolveSort(item, binType, binEl);
+  } else {
+    // Drop back into falling
+    item.el.classList.remove('dragging');
+    item.el.style.animation = '';
+    const arenaRect = document.getElementById('arena').getBoundingClientRect();
+    const curTop = parseFloat(item.el.style.top) || 0;
+    const remaining = arenaRect.height - curTop;
+    const remainTime = (remaining / arenaRect.height) * fallDuration;
+    item.el.style.setProperty('--fall-dist', remaining + 'px');
+    item.el.style.top = curTop + 'px';
+    item.el.style.animationDuration = remainTime + 's';
+    item.el.style.animation = `trashFall ${remainTime}s linear forwards`;
+    clearTimeout(item.missTimeout);
+    item.missTimeout = setTimeout(() => {
+      if (!item.removed && gameRunning) missTrash(item);
+    }, remainTime * 1000);
+  }
+  selectedTrashId = null;
+}
+
+function getBinUnderCursor(cx, cy) {
+  const els = document.elementsFromPoint(cx, cy);
+  for (const el of els) {
+    if (el.classList.contains('bin')) return el;
+    if (el.closest && el.closest('.bin')) return el.closest('.bin');
+  }
+  return null;
+}
+
+// ======================== BIN CLICK (keyboard-style) ========================
+function binClicked(binType) {
+  if (!gameRunning) return;
+  // Find the "selected" or closest trash
+  const alive = currentTrashItems.filter(t => !t.removed);
+  if (alive.length === 0) return;
+
+  // Pick the lowest-falling trash
+  let target = alive[0];
+  let maxTop = -Infinity;
+  alive.forEach(t => {
+    const rect = t.el.getBoundingClientRect();
+    if (rect.top > maxTop) { maxTop = rect.top; target = t; }
+  });
+
+  const binEl = document.querySelector(`.bin[data-type="${binType}"]`);
+  resolveSort(target, binType, binEl);
+}
+
+// ======================== RESOLVE ========================
+function resolveSort(item, binType, binEl) {
+  if (item.removed) return;
+  item.removed = true;
+  clearTimeout(item.missTimeout);
+
+  const isCorrect = item.type === binType;
+
+  if (isCorrect) {
+    correctCount++;
+    combo++;
+    if (combo > maxCombo) maxCombo = combo;
+    const pts = scorePerItem * combo;
+    score += pts;
+
+    item.el.classList.add('correct');
+    binEl.classList.add('drop-target');
+    binEl.classList.add('active');
+    setTimeout(() => { binEl.classList.remove('drop-target'); binEl.classList.remove('active'); }, 400);
+
+    spawnParticles(item.el, true);
+    showScorePop(item.el, '+'+pts, '#4ade80');
+    flashScreen('green');
+    resetTimer();
+
+    // Level up check
+    if (correctCount % 8 === 0) levelUp();
+  } else {
+    wrongCount++;
+    combo = 1;
+    score = Math.max(0, score - 5);
+
+    item.el.classList.add('wrong');
+    binEl.classList.add('shake');
+    setTimeout(() => binEl.classList.remove('shake'), 400);
+
+    spawnParticles(item.el, false);
+    showScorePop(item.el, '-5', '#f87171');
+    flashScreen('red');
+    loseLife();
+  }
+
+  updateHUD();
+  setTimeout(() => {
+    if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+    currentTrashItems = currentTrashItems.filter(t => t.id !== item.id);
+  }, 450);
+}
+
+function missTrash(item) {
+  if (item.removed) return;
+  item.removed = true;
+  combo = 1;
+  updateHUD();
+
+  // Miss flash on bottom
+  const f = document.createElement('div');
+  f.className = 'miss-flash';
+  document.body.appendChild(f);
+  setTimeout(() => f.remove(), 500);
+
+  if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+  currentTrashItems = currentTrashItems.filter(t => t.id !== item.id);
+  loseLife('Sampah Lolos! 😱');
+}
+
+// ======================== LIVES ========================
+function loseLife(msg) {
+  if (!gameRunning) return;
+  lives--;
+  updateHUD();
+  flashScreen('red');
+  if (lives <= 0) {
+    setTimeout(gameOver, 300);
+  }
+}
+
+// ======================== LEVEL UP ========================
+function levelUp() {
+  level++;
+  fallDuration = Math.max(3.5, fallDuration - 0.5);
+  spawnRate   = Math.max(900, spawnRate - 150);
+  scorePerItem = 10 + (level - 1) * 5;
+
+  clearInterval(spawnInterval);
+  scheduleSpawn();
+
+  // Show banner
+  const txt = document.getElementById('levelUpText');
+  const inner = document.querySelector('.level-up-inner');
+  txt.textContent = `LEVEL ${level}! 🚀`;
+  inner.classList.add('show');
+  setTimeout(() => inner.classList.remove('show'), 1800);
+
+  updateHUD();
+}
+
+// ======================== HUD ========================
+function updateHUD() {
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('comboVal').textContent = 'x'+combo;
+  document.getElementById('levelVal').textContent = level;
+
+  const cd = document.getElementById('comboDisplay');
+  cd.classList.remove('combo-active');
+  void cd.offsetWidth;
+  if (combo > 1) { cd.classList.add('combo-active'); }
+
+  // Hearts
+  let h = '';
+  for (let i = 0; i < 3; i++) {
+    h += `<span class="heart${i < lives ? '' : ' lost'}">❤️</span>`;
+  }
+  document.getElementById('heartsDisplay').innerHTML = h;
+}
+
+// ======================== PARTICLES ========================
+function spawnParticles(el, correct) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const emojis = correct
+    ? ['✨','⭐','💫','🎉','🌟']
+    : ['💢','❌','😵','💥','🤦'];
+
+  for (let i = 0; i < 6; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    const angle = (Math.random()*360);
+    const dist  = 30 + Math.random()*50;
+    p.style.left = (cx + Math.cos(angle)*dist/2) + 'px';
+    p.style.top  = (cy + Math.sin(angle)*dist/2) + 'px';
+    p.style.animationDuration = (0.5+Math.random()*0.4)+'s';
+    p.style.animationDelay = (Math.random()*0.2)+'s';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 900);
+  }
+}
+
+function showScorePop(el, text, color) {
+  const rect = el.getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = 'score-pop';
+  p.textContent = text;
+  p.style.color = color;
+  p.style.left = (rect.left + rect.width/2 - 30) + 'px';
+  p.style.top  = rect.top + 'px';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 900);
+}
+
+// ======================== FLASH ========================
+function flashScreen(type) {
+  const f = document.getElementById('screenFlash');
+  f.className = 'flash-' + type;
+  f.style.opacity = '1';
+  setTimeout(() => { f.style.opacity = '0'; f.className = ''; }, 200);
+}
+</script>
+</body>
+</html>
